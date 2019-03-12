@@ -94,10 +94,6 @@ _print_repository_path() {
 repo_to_repositories() {
 	local func="$1"
 	local path="$2"
-	if [ -n "$path" ]; then
-		path="$func"
-		func='arg'
-	fi
 
 	case "$func" in
 	arg)	func='_print_repository_arg' ;;
