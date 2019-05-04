@@ -1708,6 +1708,17 @@ default_dev() {
 	local i= j=
 	depends="$depends_dev"
 	pkgdesc="$pkgdesc (development files)"
+	
+	if subpackage_types_has static; then
+		for i in $subpackages; do
+			j="${i##:*}"
+			case "${j}" in
+				*-static)
+					depends_has "${j}" || depends+="${depends:+ }${j}"
+				;;
+			esac
+		done
+	fi
 
 	cd "$pkgdir" || return 0
 	local libdirs=usr/
