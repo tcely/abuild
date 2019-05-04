@@ -1711,7 +1711,7 @@ default_dev() {
 	
 	if [ -z "${NO_STATIC}" ] && subpackage_types_has static; then
 		for i in $subpackages; do
-			j="${i##:*}"
+			j="${i%%:*}"
 			case "${j}" in
 				*-static)
 					depends_has "${j}" || depends+="${depends:+ }${j}"
