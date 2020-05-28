@@ -82,7 +82,7 @@ amove() {
 			fi
 			mv -v "$pkgdir"/$f "$subpkgdir/${f%/*}"
 			# cleanup
-			rmdir -p "$f" || rmdir -p "${f%/*}" || true
+			rmdir -p "$f" 2>/dev/null || rmdir -p "${f%/*}" 2>/dev/null || true
 		done
 	done
 
@@ -680,7 +680,7 @@ have_patches() {
 	local i
 	for i in $source; do
 		case ${i%::*} in
-			*.patch) return 0;;
+			*.patch|*.patch.gz|*.patch.xz) return 0;;
 		esac
 	done
 	return 1
@@ -698,6 +698,14 @@ default_prepare() {
 			*.patch)
 				msg "${i%::*}"
 				patch ${patch_args:--p1} -i "$srcdir/$(filename_from_uri $i)" || return 1
+				;;
+			*.patch.gz)
+				msg "${i%::*}"
+				gunzip -c "$srcdir/$(filename_from_uri $i)" | patch ${patch_args:--p1} || return 1
+				;;
+			*.patch.xz)
+				msg "${i%::*}"
+				unxz -c "$srcdir/$(filename_from_uri $i)" | patch ${patch_args:--p1} || return 1
 				;;
 		esac
 	done
@@ -837,6 +845,19 @@ prepare_subpackages() {
 	if [ -d "$pkgdir"/usr/share/locale ]; then
 		warning "Found /usr/share/locale"
 		warning2 "Maybe add \$pkgname-lang to subpackages?"
+	fi
+	# post check for shell completions
+	if [ -d "$pkgdir"/usr/share/bash-completion ]; then
+		warning "Found /usr/share/bash-completion"
+		warning2 "Add \$pkgname-bash-completion to subpackages"
+	fi
+	if [ -d "$pkgdir"/usr/share/zsh/site-functions ]; then
+		warning "Found /usr/share/zsh/site-functions"
+		warning2 "Add \$pkgname-zsh-completion to subpackages"
+	fi
+	if [ -d "$pkgdir"/usr/share/fish/completions ]; then
+		warning "Found /usr/share/fish/completions"
+		warning2 "Add \$pkgname-fish-completion to subpackages"
 	fi
 }
 
@@ -1351,7 +1372,7 @@ trace_apk_deps() {
 			autodeps="$autodeps pc:$pcprefix$i"
 		elif subpkg_provides_pc "$i" \
 				|| $APK $apkroot info --quiet --installed "pc:$i"; then
-			local provider=$(apk $apkroot search --quiet "pc:$i")
+			local provider=$($APK $apkroot search --quiet "pc:$i")
 			if list_has "$provider" $depends_dev; then
 				warning "$provider should be removed from depends_dev"
 			fi
@@ -1820,6 +1841,7 @@ default_dev() {
 			usr/bin/*-config usr/share/vala/vapi \
 			usr/share/gir-[0-9]* usr/share/qt*/mkspecs \
 			usr/lib/qt*/mkspecs usr/lib/cmake \
+			usr/lib/glade/modules usr/share/glade/catalogs \
 			$(find . -name include -type d)	\
 			$(subpackage_types_has static || find $libdirs \
 				-name '*.a' 2>/dev/null) \
@@ -1922,7 +1944,7 @@ default_bashcomp() {
 	install_if="$pkgname=$pkgver-r$pkgrel bash-completion"
 
 	cd "$pkgdir" || return 0
-	amove /usr/share/bash-completion/completions
+	amove usr/share/bash-completion/completions
 }
 
 bashcomp() {
@@ -2035,7 +2057,7 @@ check_arch() {
 
 # return true if libc is not masked in options
 check_libc() {
-	! list_has "!libc_$CLIBC" $options
+	! options_has "!libc_$CLIBC"
 }
 
 # check if package is up to date
@@ -2673,6 +2695,7 @@ fi
 if [ -n "$DEBUG" ] || subpackage_types_has "dbg"; then
 	CFLAGS="$CFLAGS -g"
 	CXXFLAGS="$CXXFLAGS -g"
+	DFLAGS="$DFLAGS -g"
 	options="$options !strip"
 fi
 
